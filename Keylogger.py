@@ -16,6 +16,7 @@ pressedKeys = set()
 def on_press(key):
     pressedKeys.add(key)
 
+    # If Alt + Caps Lock is pressed, program terminates
     if ((keyboard.Key.alt_l in pressedKeys or keyboard.Key.alt_r in pressedKeys) 
             and keyboard.Key.caps_lock in pressedKeys):
         return False
